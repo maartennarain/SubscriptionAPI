@@ -4,38 +4,36 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sr.unasat.subscription.api.dto.SubscriptionDTO;
+import sr.unasat.subscription.api.entity.Subscription;
+import sr.unasat.subscription.api.services.SubscriptionService;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import java.util.Set;
 import java.util.List;
-
+import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.Map;
 
 @Path("/subscriptions")
 public class SubscriptionController {
-
-    private static final List<SubscriptionDTO> subscriptions = new ArrayList<>(Arrays.asList(
-            new SubscriptionDTO(1, "John", "Doe", "john.doe@example.com", "1234567890"),
-            new SubscriptionDTO(2, "Jane", "Smith", "jane.smith@example.com", "0987654321"),
-            new SubscriptionDTO(3, "Alice", "Johnson", "alice.johnson@example.com", "1122334455"),
-            new SubscriptionDTO(4, "Bob", "Brown", "bob.brown@example.com", "5566778899"),
-            new SubscriptionDTO(5, "Charlie", "Davis", "charlie.davis@example.com", "6677889900")
-    ));
-    private static int idCounter = 0;
+    private final SubscriptionService service = new SubscriptionService();
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<SubscriptionDTO> getAllSubscriptions() {
-        return subscriptions;
+        return service.findAll().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getSubscription(@PathParam("id") long id) {
-        for (SubscriptionDTO sub : subscriptions) {
-            if (sub.getId() == id) {
-                return Response.ok(sub).build();
-            }
+    public Response getSubscription(@PathParam("id") int id) {
+        Subscription sub = service.findById(id);
+        if (sub != null) {
+            return Response.ok(toDTO(sub)).build();
         }
         return Response.status(Response.Status.NOT_FOUND).build();
     }
@@ -43,40 +41,86 @@ public class SubscriptionController {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createSubscription(SubscriptionDTO subscription) {
-        subscription.setId(++idCounter);
-        subscriptions.add(subscription);
-        return Response.status(Response.Status.CREATED).entity(subscription).build();
+    public Response createSubscription(SubscriptionDTO dto) {
+        try {
+            Subscription sub = toEntity(dto);
+            Subscription saved = service.save(sub);
+            return Response.status(Response.Status.CREATED).entity(toDTO(saved)).build();
+        } catch (ConstraintViolationException e) {
+            return buildValidationErrorResponse(e.getConstraintViolations());
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
+        }
     }
 
     @PUT
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response updateSubscription(@PathParam("id") long id, SubscriptionDTO updatedSubscription) {
-        SubscriptionDTO existingSubscription = subscriptions.stream()
-                .filter(sub -> sub.getId() == id)
-                .findFirst()
-                .orElse(null);
-        if (existingSubscription != null) {
-            existingSubscription.setFirstname(updatedSubscription.getFirstname());
-            existingSubscription.setLastname(updatedSubscription.getLastname());
-            existingSubscription.setEmail(updatedSubscription.getEmail());
-            existingSubscription.setPhonenumber(updatedSubscription.getPhonenumber());
-            return Response.ok(existingSubscription).build();
-        } else {
+    public Response updateSubscription(@PathParam("id") int id, SubscriptionDTO dto) {
+        try {
+            Subscription existing = service.findById(id);
+            if (existing != null) {
+                existing.setFirstname(dto.getFirstname());
+                existing.setLastname(dto.getLastname());
+                existing.setEmail(dto.getEmail());
+                existing.setPhonenumber(dto.getPhonenumber());
+                existing.setSubscription(dto.getSubscription());
+                existing.setServices(dto.getServices());
+                Subscription updated = service.update(existing);
+                return Response.ok(toDTO(updated)).build();
+            }
             return Response.status(Response.Status.NOT_FOUND).build();
+        } catch (ConstraintViolationException e) {
+            return buildValidationErrorResponse(e.getConstraintViolations());
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
         }
     }
 
     @DELETE
     @Path("/{id}")
-    public Response deleteSubscription(@PathParam("id") long id) {
-        boolean removed = subscriptions.removeIf(sub -> sub.getId() == id);
-        if (removed) {
+    public Response deleteSubscription(@PathParam("id") int id) {
+        Subscription existing = service.findById(id);
+        if (existing != null) {
+            service.delete(id);
             return Response.noContent().build();
-        } else {
-            return Response.status(Response.Status.NOT_FOUND).build();
         }
+        return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    private SubscriptionDTO toDTO(Subscription sub) {
+        return new SubscriptionDTO(
+            sub.getId(),
+            sub.getFirstname(),
+            sub.getLastname(),
+            sub.getEmail(),
+            sub.getPhonenumber(),
+            sub.getSubscription(),
+            sub.getServices()
+        );
+    }
+
+    private Subscription toEntity(SubscriptionDTO dto) {
+        return new Subscription(
+            dto.getFirstname(),
+            dto.getLastname(),
+            dto.getEmail(),
+            dto.getPhonenumber(),
+            dto.getSubscription(),
+            dto.getServices()
+        );
+    }
+
+    private Response buildValidationErrorResponse(Set<ConstraintViolation<?>> violations) {
+        Map<String, String> errors = new HashMap<>();
+        for (ConstraintViolation<?> v : violations) {
+            String field = v.getPropertyPath().toString();
+            errors.put(field, v.getMessage());
+        }
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(errors)
+                .type(MediaType.APPLICATION_JSON)
+                .build();
     }
 }

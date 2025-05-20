@@ -6,6 +6,8 @@ public class SubscriptionDTO {
     private String lastname;
     private String email;
     private String phonenumber;
+    private String subscription;
+    private String services; // Comma-separated values for checkboxes
 
     public SubscriptionDTO() {
     }
@@ -16,6 +18,16 @@ public class SubscriptionDTO {
         this.lastname = lastname;
         this.email = email;
         this.phonenumber = phonenumber;
+    }
+
+    public SubscriptionDTO(int id, String firstname, String lastname, String email, String phonenumber, String subscription, String services) {
+        this.id = id;
+        this.firstname = firstname;
+        this.lastname = lastname;
+        this.email = email;
+        this.phonenumber = phonenumber;
+        this.subscription = subscription;
+        this.services = services;
     }
 
     // Getters and Setters
@@ -59,6 +71,22 @@ public class SubscriptionDTO {
         this.phonenumber = phonenumber;
     }
 
+    public String getSubscription() {
+        return subscription;
+    }
+
+    public void setSubscription(String subscription) {
+        this.subscription = subscription;
+    }
+
+    public String getServices() {
+        return services;
+    }
+
+    public void setServices(String services) {
+        this.services = services;
+    }
+
     @Override
     public String toString() {
         return "SubscriptionDTO{" +
@@ -67,6 +95,8 @@ public class SubscriptionDTO {
                 ", lastname='" + lastname + '\'' +
                 ", email='" + email + '\'' +
                 ", phonenumber='" + phonenumber + '\'' +
+                ", subscription='" + subscription + '\'' +
+                ", services='" + services + '\'' +
                 '}';
     }
 }

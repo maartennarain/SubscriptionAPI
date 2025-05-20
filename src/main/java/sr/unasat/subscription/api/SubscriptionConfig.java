@@ -12,7 +12,7 @@ public class SubscriptionConfig{
         // Disable JAXB optimization
         System.setProperty("org.glassfish.jaxb.runtime.v2.runtime.JAXBContextImpl.fastBoot", "true");
         // Create a Jetty server
-        Server server = new Server(8080);
+        Server server = new Server(7070);
 
         // Create a ServletContextHandler
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
